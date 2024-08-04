@@ -18,7 +18,17 @@
 //! ```
 
 #![no_std]
-#![deny(missing_docs)]
+#![doc(html_root_url = "https://docs.rs/ittybitty")]
+#![crate_name = "ittybitty"]
+#![warn(
+    missing_debug_implementations,
+    trivial_casts,
+    trivial_numeric_casts,
+    unused_lifetimes,
+    unused_import_braces,
+    clippy::shadow_unrelated
+)]
+#![deny(missing_docs, unsafe_op_in_unsafe_fn)]
 
 extern crate alloc;
 
@@ -128,21 +138,21 @@ impl<const N: usize> IttyBitty<N> {
     }
 
     unsafe fn get_word_unchecked(&self, word: usize) -> &usize {
-        if self.spilled() {
+        let slice = if self.spilled() {
             self.buffer()
         } else {
             self.data.as_slice()
-        }
-        .get_unchecked(word)
+        };
+        unsafe { slice.get_unchecked(word) }
     }
 
     unsafe fn get_word_unchecked_mut(&mut self, word: usize) -> &mut usize {
-        if self.spilled() {
+        let slice = if self.spilled() {
             self.buffer_mut()
         } else {
             self.data.as_mut_slice()
-        }
-        .get_unchecked_mut(word)
+        };
+        unsafe { slice.get_unchecked_mut(word) }
     }
 
     /// Get the bit at `bit` without bounds checks.
@@ -150,7 +160,7 @@ impl<const N: usize> IttyBitty<N> {
     pub unsafe fn get_unchecked(&self, bit: usize) -> bool {
         let w = bit >> INLINE_BITS_POT;
         let b = 1 << (bit & INLINE_BITS_MASK);
-        self.get_word_unchecked(w) & b != 0
+        unsafe { self.get_word_unchecked(w) & b != 0 }
     }
 
     /// Set the bit at `bit` without bounds checks.
@@ -158,7 +168,7 @@ impl<const N: usize> IttyBitty<N> {
     pub unsafe fn set_unchecked(&mut self, bit: usize, val: bool) {
         let w = bit >> INLINE_BITS_POT;
         let b = 1 << (bit & INLINE_BITS_MASK);
-        let word = self.get_word_unchecked_mut(w);
+        let word = unsafe { self.get_word_unchecked_mut(w) };
         if val {
             *word |= b;
         } else {
@@ -243,7 +253,16 @@ impl<const N: usize> IttyBitty<N> {
         Iter { v: self, i: 0 }
     }
 
-    /// Gets the first true bit after `bit`.
+    /// Iterate over true bits backwards.
+    #[inline]
+    pub fn iter_rev(&self) -> IterRev<N> {
+        IterRev {
+            v: self,
+            i: self.capacity(),
+        }
+    }
+
+    /// Gets the first true bit at or after `bit`.
     pub fn next_set_bit(&self, bit: usize) -> usize {
         if bit >= self.capacity() {
             return usize::MAX;
@@ -259,6 +278,27 @@ impl<const N: usize> IttyBitty<N> {
             let next = unsafe { self.get_word_unchecked(w) }.trailing_zeros() as usize;
             if next < INLINE_BITS {
                 return next + (w << INLINE_BITS_POT);
+            }
+        }
+        usize::MAX
+    }
+
+    /// Gets the first true bit before `bit`.
+    pub fn prev_set_bit(&self, bit: usize) -> usize {
+        if bit == 0 {
+            return usize::MAX;
+        }
+        let bit = bit.min(self.capacity() - 1);
+        let w = bit >> INLINE_BITS_POT;
+        let b = bit & INLINE_BITS_MASK;
+        let prev = (unsafe { self.get_word_unchecked(w) } & !(!0 << b)).leading_zeros() as usize;
+        if prev < INLINE_BITS {
+            return (w << INLINE_BITS_POT) + INLINE_BITS - 1 - prev;
+        }
+        for w in (0..w).rev() {
+            let prev = unsafe { self.get_word_unchecked(w) }.leading_zeros() as usize;
+            if prev < INLINE_BITS {
+                return (w << INLINE_BITS_POT) + INLINE_BITS - 1 - prev;
             }
         }
         usize::MAX
@@ -351,6 +391,7 @@ impl<'a, const N: usize> IntoIterator for &'a IttyBitty<N> {
 }
 
 /// IttyBitty owned iterator
+#[derive(Debug)]
 pub struct IntoIter<const N: usize> {
     v: IttyBitty<N>,
     i: usize,
@@ -372,6 +413,7 @@ impl<const N: usize> Iterator for IntoIter<N> {
 }
 
 /// IttyBitty reference iterator
+#[derive(Debug)]
 pub struct Iter<'a, const N: usize> {
     v: &'a IttyBitty<N>,
     i: usize,
@@ -382,12 +424,35 @@ impl<'a, const N: usize> Iterator for Iter<'a, N> {
 
     #[inline]
     fn next(&mut self) -> Option<usize> {
-        let i = self.v.next_set_bit(self.i);
-        self.i = i;
-        if i == usize::MAX {
+        self.i = self.v.next_set_bit(self.i);
+        if self.i == usize::MAX {
             return None;
         }
-        self.i = i + 1;
+        let i = self.i;
+        self.i += 1;
         Some(i)
+    }
+}
+
+/// IttyBitty reverse iterator
+#[derive(Debug)]
+pub struct IterRev<'a, const N: usize> {
+    v: &'a IttyBitty<N>,
+    i: usize,
+}
+
+impl<'a, const N: usize> Iterator for IterRev<'a, N> {
+    type Item = usize;
+
+    #[inline]
+    fn next(&mut self) -> Option<usize> {
+        if self.i == usize::MAX {
+            return None;
+        }
+        self.i = self.v.prev_set_bit(self.i);
+        if self.i == usize::MAX {
+            return None;
+        }
+        Some(self.i)
     }
 }

@@ -15,7 +15,7 @@ ittybitty = "0.1"
 
 # Example
 
-```
+```rs
 use ittybitty::IttyBitty;
 
 let mut v = IttyBitty::<2>::new();

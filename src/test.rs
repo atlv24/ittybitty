@@ -1,6 +1,8 @@
 #[cfg(test)]
 #[generic_tests::define]
 mod tests {
+    use core::usize;
+
     use crate::IttyBitty;
     use alloc::vec::Vec;
 
@@ -89,6 +91,21 @@ mod tests {
     }
 
     #[test]
+    fn test_iter_rev<const N: usize>() {
+        let numbers: [usize; 8] = [3, 17, 127, 128, 340, 600, 942, 1732];
+        for i in 0..numbers.len() {
+            let mut b = IttyBitty::<N>::new();
+            for &n in numbers.iter().take(i) {
+                b.set(n, true);
+            }
+            assert_eq!(
+                b.iter_rev().collect::<Vec<_>>(),
+                numbers.iter().take(i).rev().map(|&u| u).collect::<Vec<_>>()
+            );
+        }
+    }
+
+    #[test]
     fn test_into_iter<const N: usize>() {
         let numbers: [usize; 8] = [3, 17, 127, 128, 340, 600, 942, 1732];
         for i in 0..numbers.len() {
@@ -116,6 +133,75 @@ mod tests {
                 numbers.iter().map(|&u| u).collect::<Vec<_>>()
             );
         }
+    }
+
+    #[test]
+    fn test_next_set_bit<const N: usize>() {
+        let mut b = IttyBitty::<N>::new();
+        assert_eq!(b.next_set_bit(usize::MAX), usize::MAX);
+        assert_eq!(b.next_set_bit(2), usize::MAX);
+        assert_eq!(b.next_set_bit(0), usize::MAX);
+        b.set(1, true);
+        assert_eq!(b.next_set_bit(0), 1);
+        assert_eq!(b.next_set_bit(1), 1);
+        assert_eq!(b.next_set_bit(2), usize::MAX);
+        b.set(2, true);
+        assert_eq!(b.next_set_bit(0), 1);
+        assert_eq!(b.next_set_bit(1), 1);
+        assert_eq!(b.next_set_bit(2), 2);
+        b.set(1, false);
+        assert_eq!(b.next_set_bit(0), 2);
+        assert_eq!(b.next_set_bit(1), 2);
+        b.set(0, true);
+        assert_eq!(b.next_set_bit(0), 0);
+        assert_eq!(b.next_set_bit(1), 2);
+        b.set(10, true);
+        assert_eq!(b.next_set_bit(0), 0);
+        assert_eq!(b.next_set_bit(1), 2);
+        assert_eq!(b.next_set_bit(2), 2);
+        assert_eq!(b.next_set_bit(9), 10);
+        assert_eq!(b.next_set_bit(10), 10);
+        b.set(1000, true);
+        assert_eq!(b.next_set_bit(9), 10);
+        assert_eq!(b.next_set_bit(10), 10);
+        assert_eq!(b.next_set_bit(999), 1000);
+        assert_eq!(b.next_set_bit(1000), 1000);
+        assert_eq!(b.next_set_bit(1001), usize::MAX);
+    }
+
+    #[test]
+    fn test_prev_set_bit<const N: usize>() {
+        let mut b = IttyBitty::<N>::new();
+        assert_eq!(b.prev_set_bit(usize::MAX), usize::MAX);
+        assert_eq!(b.prev_set_bit(2), usize::MAX);
+        assert_eq!(b.prev_set_bit(0), usize::MAX);
+        b.set(1, true);
+        assert_eq!(b.prev_set_bit(0), usize::MAX);
+        assert_eq!(b.prev_set_bit(1), usize::MAX);
+        assert_eq!(b.prev_set_bit(2), 1);
+        assert_eq!(b.prev_set_bit(usize::MAX), 1);
+        b.set(2, true);
+        assert_eq!(b.prev_set_bit(1), usize::MAX);
+        assert_eq!(b.prev_set_bit(2), 1);
+        assert_eq!(b.prev_set_bit(3), 2);
+        b.set(1, false);
+        assert_eq!(b.prev_set_bit(1), usize::MAX);
+        assert_eq!(b.prev_set_bit(3), 2);
+        assert_eq!(b.prev_set_bit(2), usize::MAX);
+        b.set(0, true);
+        assert_eq!(b.prev_set_bit(0), usize::MAX);
+        assert_eq!(b.prev_set_bit(1), 0);
+        b.set(10, true);
+        assert_eq!(b.prev_set_bit(2), 0);
+        assert_eq!(b.prev_set_bit(9), 2);
+        assert_eq!(b.prev_set_bit(10), 2);
+        assert_eq!(b.prev_set_bit(11), 10);
+        b.set(1000, true);
+        assert_eq!(b.prev_set_bit(10), 2);
+        assert_eq!(b.prev_set_bit(11), 10);
+        assert_eq!(b.prev_set_bit(999), 10);
+        assert_eq!(b.prev_set_bit(1000), 10);
+        assert_eq!(b.prev_set_bit(1001), 1000);
     }
 
     #[instantiate_tests(<2>)]
