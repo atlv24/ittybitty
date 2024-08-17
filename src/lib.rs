@@ -62,7 +62,7 @@ impl<const N: usize> IttyBitty<N> {
     /// Create an empty inline `IttyBitty`
     #[inline]
     pub const fn new() -> Self {
-        assert!(N > 1);
+        const { assert!(N > 1) }
         Self { data: [0; N] }
     }
 
@@ -85,7 +85,7 @@ impl<const N: usize> IttyBitty<N> {
     /// Create an empty inline `IttyBitty` with enough capacity to hold `bits`
     #[inline]
     pub fn with_capacity(bits: usize) -> Self {
-        assert!(N > 1);
+        const { assert!(N > 1) }
         if bits <= Self::INLINE_CAPACITY {
             return Self::new();
         }
