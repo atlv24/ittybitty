@@ -25,8 +25,7 @@
     trivial_casts,
     trivial_numeric_casts,
     unused_lifetimes,
-    unused_import_braces,
-    clippy::shadow_unrelated
+    unused_import_braces
 )]
 #![deny(missing_docs, unsafe_op_in_unsafe_fn)]
 
@@ -114,7 +113,7 @@ impl<const N: usize> IttyBitty<N> {
 
     #[inline]
     fn buffer_raw(&self) -> *mut [usize] {
-        unsafe { core::slice::from_raw_parts_mut(self.pointer(), self.words()) }
+        core::ptr::slice_from_raw_parts_mut(self.pointer(), self.words())
     }
 
     #[inline]
@@ -137,6 +136,10 @@ impl<const N: usize> IttyBitty<N> {
         }
     }
 
+    /// # Safety
+    ///
+    /// Calling this method with an out-of-bounds index is *undefined behavior*
+    /// even if the resulting reference is not used.
     unsafe fn get_word_unchecked(&self, word: usize) -> &usize {
         let slice = if self.spilled() {
             self.buffer()
@@ -156,6 +159,9 @@ impl<const N: usize> IttyBitty<N> {
     }
 
     /// Get the bit at `bit` without bounds checks.
+    ///
+    /// # Safety
+    /// `bit` must be less than `self::capacity()`.
     #[inline]
     pub unsafe fn get_unchecked(&self, bit: usize) -> bool {
         let w = bit >> INLINE_BITS_POT;
@@ -164,6 +170,9 @@ impl<const N: usize> IttyBitty<N> {
     }
 
     /// Set the bit at `bit` without bounds checks.
+    ///
+    /// # Safety
+    /// `bit` must be less than `self::capacity()`.
     #[inline]
     pub unsafe fn set_unchecked(&mut self, bit: usize, val: bool) {
         let w = bit >> INLINE_BITS_POT;
@@ -238,9 +247,7 @@ impl<const N: usize> IttyBitty<N> {
         };
 
         v.resize(Self::words_needed(bits).max(v.capacity() + 1), 0);
-        for _ in v.len()..v.capacity() {
-            v.push(0);
-        }
+        v.extend(core::iter::repeat_n(0, v.capacity() - v.len()));
 
         self.data[Self::POINTER_WORD] = v.as_ptr() as usize;
         self.data[Self::CAPACITY_WORD] = v.capacity() | HEAP_FLAG;
@@ -249,13 +256,13 @@ impl<const N: usize> IttyBitty<N> {
 
     /// Iterate over true bits.
     #[inline]
-    pub fn iter(&self) -> Iter<N> {
+    pub fn iter(&self) -> Iter<'_, N> {
         Iter { v: self, i: 0 }
     }
 
     /// Iterate over true bits backwards.
     #[inline]
-    pub fn iter_rev(&self) -> IterRev<N> {
+    pub fn iter_rev(&self) -> IterRev<'_, N> {
         IterRev {
             v: self,
             i: self.capacity(),
@@ -319,11 +326,7 @@ impl<const N: usize> core::ops::Index<usize> for IttyBitty<N> {
 
     #[inline(always)]
     fn index(&self, bit: usize) -> &Self::Output {
-        if self.get(bit) {
-            &true
-        } else {
-            &false
-        }
+        if self.get(bit) { &true } else { &false }
     }
 }
 
@@ -364,7 +367,7 @@ impl<const N: usize> PartialEq for IttyBitty<N> {
                 return false;
             }
         }
-        return true;
+        true
     }
 }
 

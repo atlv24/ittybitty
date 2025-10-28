@@ -10,7 +10,7 @@ Add it to your Cargo.toml:
 
 ```toml
 [dependencies]
-ittybitty = "0.1"
+ittybitty = "0.3"
 ```
 
 # Example
