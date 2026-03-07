@@ -2,7 +2,7 @@
 
 `IttyBitty<N>` is a dynamically sized bit set that behaves akin to a `SmallVec<[usize; N]>`
 It holds `N * size_of::<usize>() - 1` bits inline. If a bit is set beyond that range, it will
-allocate a buffer on the heap and stop using the inline bits. `N` must be 2 or greater.
+allocate a buffer on the heap and stop using the inline bits. `N` must be 1 or greater.
 
 Please consult [**the documentation**](https://docs.rs/ittybitty) for more information.
 
@@ -10,12 +10,12 @@ Add it to your Cargo.toml:
 
 ```toml
 [dependencies]
-ittybitty = "0.3"
+ittybitty = "0.4"
 ```
 
-# Example
+## Example
 
-```rs
+```rust
 use ittybitty::IttyBitty;
 
 let mut v = IttyBitty::<2>::new();
@@ -27,7 +27,8 @@ assert_eq!(v.get(4), true);
 
 ## Safety
 
-This code is only mildly not garbage, good luck.
+This crate uses unsafe code for performance.
+It has been extensively tested to ensure it behaves correctly.
 
 ## License
 
